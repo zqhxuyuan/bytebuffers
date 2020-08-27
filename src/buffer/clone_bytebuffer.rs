@@ -1,16 +1,15 @@
-use crate::buffer::bytebuffer::ByteBuffer;
 use std::cell::RefCell;
-use crate::buffer::buffer::{IBuffer, Buffer};
+use crate::buffer::buffer::{IBuffer, Buffer, ByteBuffer};
 
 #[derive(Debug, Clone)]
-pub struct HeapByteBuffer {
+pub struct CloneByteBuffer {
     pub buffer: ByteBuffer,
     // use RefCell for multiple slice buffer to share the same underlying buf
     pub hb: RefCell<Vec<u8>>,
     pub offset: i32,
 }
 
-impl IBuffer for HeapByteBuffer {
+impl IBuffer for CloneByteBuffer {
     fn mark(&self) -> i32 {
         self.buffer.mark()
     }
@@ -76,7 +75,7 @@ impl IBuffer for HeapByteBuffer {
     }
 }
 
-impl HeapByteBuffer {
+impl CloneByteBuffer {
     pub fn new(buf: &[u8], mark: i32, pos: i32, limit: i32, cap: i32, off: i32) -> Self {
         let buffer = ByteBuffer::new_(mark, pos, limit, cap);
         Self {
@@ -108,6 +107,14 @@ impl HeapByteBuffer {
         }
     }
 
+    pub fn new_(buffer: ByteBuffer, hb: RefCell<Vec<u8>>, offset: i32) -> Self {
+        Self {
+            buffer, hb, offset
+        }
+    }
+
+    // todo: the result of RefCell clone is not expected: we want to change the slice and also change the parent buffer.
+    // but use clone() here will only change the slice hb buffer, not changing the parent buffer.
     pub fn slice(&self) -> Self {
         let buffer = ByteBuffer::new_(-1, 0, self.buffer.remaining(), self.buffer.remaining());
         Self {
@@ -214,7 +221,7 @@ impl HeapByteBuffer {
     /// Put destination HeapByteBuffer to current HeapByteBuffer
     /// - source start: destination HeapByteBuffer's position
     /// - destination start: current HeapByteBuffer's position
-    pub fn put_buffer(&mut self, heap_buffer: &mut HeapByteBuffer) {
+    pub fn put_buffer(&mut self, heap_buffer: &mut CloneByteBuffer) {
         // let mut heap_buffer = buffer as HeapByteBuffer;
         let n = heap_buffer.remaining() as usize;
         if n > self.remaining() as usize {
